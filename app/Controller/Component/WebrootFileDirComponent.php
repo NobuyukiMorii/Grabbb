@@ -1,7 +1,7 @@
 <?php
 class WebrootFileDirComponent extends Component
 {
-    public function WebrootFileDir(){
+    public function GetWebrootFileDir(){
 
         $dmain = $_SERVER['HTTP_HOST'];
         $fullpath = $_SERVER['SCRIPT_FILENAME'];
