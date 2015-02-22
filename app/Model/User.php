@@ -2,6 +2,13 @@
 
 class User extends AppModel {
 
+    public $hasMany = array(
+        'UserImage' => array(
+            'className'  => 'UserImage',
+            'foreignKey'    => 'user_id',
+        )
+    );
+
     public $validate = array(
         'user_id' => array(
         	'isUnique' => array(
