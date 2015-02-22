@@ -2,6 +2,8 @@
 // Controller/UsersController.php
 class UsersController extends AppController {
 
+    public $uses = array('User' , 'UserImage');
+
     public $components = array('RequestHandler');
 
     public function index() {
@@ -79,7 +81,7 @@ class UsersController extends AppController {
             $fields = array('status');
             $this->User->save($status, false, $fields);
 
-            $message = array('result' => 'Success' , 'user_id' => $this->request->data['user_id']);
+            $message = array('result' => 'Success' , 'id' => $flg[0]['User']['id']);
         }
 
         //失敗時の処理
@@ -173,4 +175,130 @@ class UsersController extends AppController {
 
     }
 
+    public function profile_image_upload(){
+        //appまでのパスを取得
+        $dmain = $_SERVER['HTTP_HOST'];
+        $fullpath = $_SERVER['SCRIPT_FILENAME'];
+    
+        $pattern = "'/(.*" .$dmain .")/'";
+        $domainpath = preg_replace($pattern , '' , $fullpath);
+    
+        $filepath = explode( '/', $domainpath);
+        $dircount = count($filepath);
+        $target = $dircount - 2;
+
+        if($target <= 0){
+                $path = $dmain;
+            }else{
+                $WebrootFileDir = '';      
+                for($i = 0; $i < $target; $i++){
+                    $WebrootFileDir .= '/';
+                    $WebrootFileDir .= $filepath[$i];
+                }
+            $WebrootFileDir = '/' . ltrim($WebrootFileDir, '/').'/webroot';
+        }
+
+        //idがあるかどうかの判定
+        $user_exsitance = $this->User->find('first' , array(
+            'conditions' =>array('id' => $this->request->data['id']),
+            'fields'=>array('id')            
+        ));
+        //idがあった時
+        if(!empty($user_exsitance)){
+             //変数の設定
+            $IMAGES_DIR = $WebrootFileDir.'/UserOriginalImages';
+            $THUMBNAILS_DIR = $WebrootFileDir.'/UserThumbnailImages';
+            $THUMBNAIL_WIDTH = 72;
+            $MAX_FILE_SIZE = 307200;
+            //アップロードエラーを検出する
+            if($_FILES['image']['error'] != UPLOAD_ERR_OK){
+                $message = array('result' => 'errror' , 'detail' => 'UploadError');
+            }
+            //サイズエラーを検出sるう
+            $size = filesize($_FILES['image']['tmp_name']);
+            if(!$size || $size > $MAX_FILE_SIZE){
+                $message = array('result' => 'errror' , 'detail' => 'SizeErrror');
+            }
+            //画像の拡張子のエラーを検出する
+            $imagesize = getimagesize($_FILES['image']['tmp_name']);
+            switch ($imagesize['mime']) {
+                case 'image/gif':
+                    $ext = '.gif';
+                    break;
+                case 'image/jpeg':
+                    $ext = '.jpg';
+                    break;
+                case 'image/png':
+                    $ext = '.png';
+                    break;
+                default:
+                    $message = array('result' => 'errror' , 'detail' => 'TypeErrror');
+                    exit;
+            }
+            //オリジナルの画像のファイル名を設定する
+            $imageFileName = sha1(time().mt_rand()).$ext;
+            //元画像を保存
+            $imageFilePath = $IMAGES_DIR.'/'.$imageFileName;
+
+            $rs = move_uploaded_file($_FILES['image']['tmp_name'], $imageFilePath);
+
+            if(!$rs){
+                $message = array('result' => 'errror' , 'detail' => 'MoveUploadedFileErrror');
+            }
+            //画像の幅と高さを変数に代入
+            $width = $imagesize[0];
+            $height = $imagesize[1];
+            //オリジナル画像が大きい時は、サムネイルを作成する
+
+            //元ファイルを画像タイプを作る
+            switch ($imagesize['mime']) {
+            case 'image/gif':
+                $srcImage = imagecreatefromgif($imageFilePath);
+                break;
+            case 'image/jpeg':
+                $srcImage = imagecreatefromjpeg($imageFilePath);
+                break;
+            case 'image/png':
+                $srcImage = imagecreatefrompng($imageFilePath);
+                break;
+            }
+            //新しいサイズを作る
+            $thumbHeight = round($height * $THUMBNAIL_WIDTH / $width);
+            //縮小画像を生成
+            $thumbImage = imagecreatetruecolor($THUMBNAIL_WIDTH, $thumbHeight);
+            imagecopyresampled($thumbImage, $srcImage, 0, 0, 0, 0, 72, $thumbHeight, $width, $height);
+            
+            //縮小画像を保存する
+            switch ($imagesize['mime']) {
+            case 'image/gif':
+                imagegif($thumbImage, $THUMBNAILS_DIR.'/'.$imageFileName);
+                break;
+            case 'image/jpeg':
+                imagejpeg($thumbImage, $THUMBNAILS_DIR.'/'.$imageFileName);
+                break;
+            case 'image/png':
+                imagepng($thumbImage, $THUMBNAILS_DIR.'/'.$imageFileName);
+                break;
+            }
+            //UserImageテーブルにパスを保存する
+            $UserImageInfo = array('UserImage' => array(
+                'user_id' => $this->request->data['id'],
+                'path' => $imageFileName
+            ));
+            $flg = $this->UserImage->save($UserImageInfo);
+            //DBのsaveの判定
+            if($flg){
+                $message = array('result' => 'success');
+            } else {
+                $message = array('result' => 'error', 'detail' => 'DatabaseSaveErrror');
+            }
+        } else {
+            $message = array('result' => 'errror' , 'detail' => 'idExsitence');
+        }
+        //jsonを返す
+        $this->set(array(
+            'message' => $message,
+            '_serialize' => array('message')
+        ));
+    }
 }
