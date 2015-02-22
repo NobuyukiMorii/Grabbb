@@ -66,7 +66,19 @@ class User extends AppModel {
                 'message' => 'notEmpty',
                 'last'    => false
             )
-	    )
+	    ),
+        'introductory_comment' => array(
+            'between' => array(
+                'rule'    => array('between', 5, 15),
+                'message' => 'between'
+            ),
+        ),
+        'status' => array(
+             'allowedChoice' => array(
+                 'rule' => array('inList', array(0, 1)),
+                 'message' => 'allowedChoice'
+             )
+        )
     );
 
 }

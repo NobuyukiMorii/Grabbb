@@ -110,21 +110,67 @@ class UsersController extends AppController {
     }
 
     public function logout(){
-        // ログインステータスを更新
-        $status = array('User' => array('id' => $this->request->data['id'], 'status' => 0));
-        $fields = array('status');
-        $flg = $this->User->save($status, false, $fields);
 
-        if($flg){
-            $message = array('result' => 'success');
-        } else {
-            $message = array('result' => 'error');
+        //idがあるかどうかを検索
+        $user_exsitance = $this->User->find('first' , array(
+            'conditions' =>array('id' => $this->request->data['id']),
+            'fields'=>array('id')            
+        ));
+        //idがあった時
+        if(!empty($user_exsitance)){
+            // ログインステータスを更新
+            $status = array('User' => array('id' => $this->request->data['id'], 'status' => 0));
+            $fields = array('status');
+            $flg = $this->User->save($status, false, $fields);
+
+            if($flg){
+                $message = array('result' => 'success');
+            } else {
+                $message = array('result' => 'error');
+            }
         }
-
+        //idがなかった時
+        if(empty($user_exsitance)){
+            $message = array('result' => 'error' , 'detail' => 'idExsitence');
+        }
+        //jsonを返す
         $this->set(array(
             'message' => $message,
             '_serialize' => array('message')
         ));
+    }
+
+    public function introductory_comment(){
+
+        //idがあるかどうかを検索
+        $user_exsitance = $this->User->find('first' , array(
+            'conditions' =>array('id' => $this->request->data['id']),
+            'fields'=>array('id')            
+        ));
+        //idがあった時
+        if(!empty($user_exsitance)){
+            // 自己紹介文を更新
+            $introductory_comment = array('User' => array('id' => $this->request->data['id'], 'introductory_comment' => $this->request->data['introductory_comment']));
+            $fields = array('introductory_comment');
+            $this->User->id = $this->request->data['id'];  
+            $flg = $this->User->save($introductory_comment, false, $fields);
+
+            if($flg){
+                $message = array('result' => 'success');
+            } else {
+                $message = array('result' => 'error');
+            }       
+        }
+        //idがなかった時
+        if(empty($user_exsitance)){
+            $message = array('result' => 'error' , 'detail' => 'idExsitence');
+        }
+        //jsonを返す
+        $this->set(array(
+            'message' => $message,
+            '_serialize' => array('message')
+        ));
+
     }
 
 }
