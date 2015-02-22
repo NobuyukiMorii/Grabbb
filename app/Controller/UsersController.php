@@ -4,7 +4,7 @@ class UsersController extends AppController {
 
     public $uses = array('User' , 'UserImage');
 
-    public $components = array('RequestHandler');
+    public $components = array('RequestHandler','WebrootFileDir');
 
     public function index() {
         $users = $this->User->find('all');
@@ -176,27 +176,28 @@ class UsersController extends AppController {
     }
 
     public function profile_image_upload(){
-        //appまでのパスを取得
-        $dmain = $_SERVER['HTTP_HOST'];
-        $fullpath = $_SERVER['SCRIPT_FILENAME'];
+        // //appまでのパスを取得
+        // $dmain = $_SERVER['HTTP_HOST'];
+        // $fullpath = $_SERVER['SCRIPT_FILENAME'];
     
-        $pattern = "'/(.*" .$dmain .")/'";
-        $domainpath = preg_replace($pattern , '' , $fullpath);
+        // $pattern = "'/(.*" .$dmain .")/'";
+        // $domainpath = preg_replace($pattern , '' , $fullpath);
     
-        $filepath = explode( '/', $domainpath);
-        $dircount = count($filepath);
-        $target = $dircount - 2;
+        // $filepath = explode( '/', $domainpath);
+        // $dircount = count($filepath);
+        // $target = $dircount - 2;
 
-        if($target <= 0){
-                $path = $dmain;
-            }else{
-                $WebrootFileDir = '';      
-                for($i = 0; $i < $target; $i++){
-                    $WebrootFileDir .= '/';
-                    $WebrootFileDir .= $filepath[$i];
-                }
-            $WebrootFileDir = '/' . ltrim($WebrootFileDir, '/').'/webroot';
-        }
+        // if($target <= 0){
+        //         $path = $dmain;
+        //     }else{
+        //         $WebrootFileDir = '';      
+        //         for($i = 0; $i < $target; $i++){
+        //             $WebrootFileDir .= '/';
+        //             $WebrootFileDir .= $filepath[$i];
+        //         }
+        //     $WebrootFileDir = '/' . ltrim($WebrootFileDir, '/').'/webroot';
+        // }
+        $WebrootFileDir = $this->WebrootFileDir->WebrootFileDir();
 
         //idがあるかどうかの判定
         $user_exsitance = $this->User->find('first' , array(
