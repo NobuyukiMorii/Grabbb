@@ -22,6 +22,7 @@ class UsersController extends AppController {
 
     public function add() {
         $this->User->create();
+        $this->request->data['password'] = sha1($this->request->data['password']);
         $result = $this->User->save($this->request->data);
         if ($result) {
             $message = array('result' => 'Saved', 'id' => $this->User->getLastInsertID());
@@ -58,5 +59,55 @@ class UsersController extends AppController {
             '_serialize' => array('message')
         ));
     }
+
+    //ログイン処理
+    public function login() {
+
+        //検索してidを返す
+        $flg = $this->User->find('all', array(
+            'conditions'=>array(
+                'and' => array(
+                    'user_id' => $this->request->data['user_id'],
+                    'password' => sha1($this->request->data['password'])
+                )),
+            'fields'=>array('id')
+        ));
+        //成功時の処理
+        if($flg){
+            // ログインステータスを更新
+            $status = array('User' => array('id' => $flg[0]['User']['id'], 'status' => 1));
+            $fields = array('status');
+            $this->User->save($status, false, $fields);
+
+            $message = array('result' => 'Success' , 'user_id' => $this->request->data['user_id']);
+        }
+
+        //失敗時の処理
+        //passwordは存在するかの確認
+        $flg_password = $this->User->find('all' , array(
+            'conditions' => array('password' => sha1($this->request->data['password'])),
+            'limit' => 1,
+            'fields'=>array('password')
+        ));
+        if(empty($flg_password)) {
+            $message = array('result' => 'Error' , 'detail' => 'password');
+        }
+
+        //user_idはあるかどうかの確認
+        $flg_user_id = $this->User->find('all' , array(
+            'conditions' => array('user_id' => $this->request->data['user_id']),
+            'limit' => 1,
+            'fields'=>array('user_id')
+        ));
+        if(empty($flg_user_id)){
+            $message = array('result' => 'Error' , 'detail' => 'user_id');
+        }
+
+        $this->set(array(
+            'message' => $message,
+            '_serialize' => array('message')
+        ));
+    }
+
 
 }

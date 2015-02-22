@@ -44,10 +44,6 @@ class User extends AppModel {
                 'message'  => 'alphaNumeric',
                 'last'    => false
             ),
-            'between' => array(
-                'rule'    => array('between', 5, 15),
-                'message' => 'between'
-            ),
  			'notEmpty' => array(
                 'rule'    => 'notEmpty',
                 'message' => 'notEmpty',
