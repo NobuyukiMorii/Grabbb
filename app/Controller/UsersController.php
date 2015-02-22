@@ -109,5 +109,22 @@ class UsersController extends AppController {
         ));
     }
 
+    public function logout(){
+        // ログインステータスを更新
+        $status = array('User' => array('id' => $this->request->data['id'], 'status' => 0));
+        $fields = array('status');
+        $flg = $this->User->save($status, false, $fields);
+
+        if($flg){
+            $message = array('result' => 'success');
+        } else {
+            $message = array('result' => 'error');
+        }
+
+        $this->set(array(
+            'message' => $message,
+            '_serialize' => array('message')
+        ));
+    }
 
 }
