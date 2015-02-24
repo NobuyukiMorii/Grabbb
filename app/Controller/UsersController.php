@@ -192,8 +192,6 @@ class UsersController extends AppController {
 
                 //変数の設定
                 $IMAGES_DIR = $WebrootFileDir.'/UserOriginalImages';
-                $THUMBNAILS_DIR = $WebrootFileDir.'/UserThumbnailImages';
-                $THUMBNAIL_WIDTH = 200;
                 $MAX_FILE_SIZE = 307200;
 
                 //アップロードエラー、ファイルサイズのエラーを検出
@@ -210,10 +208,6 @@ class UsersController extends AppController {
                 $imageFilePath = $IMAGES_DIR.'/'.$imageFileName;
                 //ファイルをtmpからオリジナルイメージを入れるフォルダに移動
                 $message = $this->FileUpload->UploadToOriginalImageFolder($imageFilePath);
-                //画像をリサイズする
-                $thumbImage = $this->FileUpload->MakeResizeImage($imageFilePath,$imageFileName,$imagesize,$THUMBNAIL_WIDTH);
-                //リサイズした画像をアップロードする
-                $this->FileUpload->UploadTHUMBNAILS_DIR($imagesize,$thumbImage , $THUMBNAILS_DIR , $imageFileName);
                 //UserImageテーブルにパスを保存する
                 $UserImageInfo = array('UserImage' => array(
                     'user_id' => $id,
@@ -238,6 +232,12 @@ class UsersController extends AppController {
             'message' => $message,
             '_serialize' => array('message')
         ));
+    }
+
+    public function TraceUser(){
+
+
+
     }
 
 }
