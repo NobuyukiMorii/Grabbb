@@ -6,6 +6,10 @@ class User extends AppModel {
         'UserImage' => array(
             'className'  => 'UserImage',
             'foreignKey'    => 'user_id',
+        ),
+        'UserLocation' => array(
+            'className'  => 'UserLocation',
+            'foreignKey'    => 'user_id',
         )
     );
 

@@ -2,7 +2,7 @@
 // Controller/UsersController.php
 class UsersController extends AppController {
 
-    public $uses = array('User' , 'UserImage');
+    public $uses = array('User' , 'UserImage' , 'UserLocation');
 
     public $components = array('RequestHandler','WebrootFileDir' ,'FileUpload');
 
@@ -234,10 +234,49 @@ class UsersController extends AppController {
         ));
     }
 
-    public function TraceUser(){
+    public function trace_user(){
+        //変数を設定
+        $location_data['natural_id'] = null;
+        $location_data['user_id'] = $this->request->data['id'];
+        $location_data['latitude'] = $this->request->data['latitude'];
+        $location_data['longitude'] = $this->request->data['longitude'];
 
+        //idがない場合はエグジット
+        $user_id_exsitance = $this->User->find('first' , array(
+            'conditions' =>array('id' => $this->request->data['id']),
+            'fields'=>array('id')            
+        ));
+        if(empty($user_id_exsitance)) {
+            $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
+        } else {
+            //user_locationテーブルのuser_idの数をカウント
+            $location_log = $this->UserLocation->find('first' , array(
+                'conditions' => array('user_id' => $location_data['user_id'])
+            ));
+            //user_locationにuser_idが存在しない時
+            if(!$location_log){
+                $this->UserLocation->create();
+                $flg = $this->UserLocation->save($location_data);  
+                if($flg){
+                    $message = array('result' => 'success' , 'location_log_id' => $this->UserLocation->getLastInsertID(), 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
+                } else {
+                    $message = array('result' => 'error' , 'detail' => 'CreateError');
+                }
+               
+            } else {
+                //user_locationにuser_idが存在する時
+                $this->UserLocation->id = $location_log['UserLocation']['id'];
+                $location_data['natural_id'] = $location_log['UserLocation']['id'];
 
-
+                $flg = $this->UserLocation->save($location_data);  
+                if($flg){
+                    $message = array('result' => 'success' , 'location_log_id' => $location_log['UserLocation']['id'] , 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
+                } else {
+                    $message = array('result' => 'error' , 'detail' => 'UpdateError');
+                }
+            }
+        }
+         $this->set(array('message' => $message, '_serialize' => array('message')));
     }
 
 }
