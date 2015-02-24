@@ -175,62 +175,69 @@ class UsersController extends AppController {
 
     }
 
-    public function profile_image_upload(){
-        //webrootディレクトリを取得
-        $WebrootFileDir = $this->WebrootFileDir->GetWebrootFileDir();
+    public function profile_image_upload($id){
 
-        //idがあるかどうかの判定
-        $user_exsitance = $this->User->find('first' , array(
-            'conditions' =>array('id' => $this->request->data['id']),
-            'fields'=>array('id')            
-        ));
+        if($_FILES['image']['size'] !== 0){
+            //webrootディレクトリを取得
+            $WebrootFileDir = $this->WebrootFileDir->GetWebrootFileDir();
 
-        //idがあった時
-        if(!empty($user_exsitance)){
-            //変数の設定
-            $IMAGES_DIR = $WebrootFileDir.'/UserOriginalImages';
-            $THUMBNAILS_DIR = $WebrootFileDir.'/UserThumbnailImages';
-            $THUMBNAIL_WIDTH = 72;
-            $MAX_FILE_SIZE = 307200;
+            //idがあるかどうかの判定
+            $user_exsitance = $this->User->find('first' , array(
+                'conditions' =>array('id' => $id),
+                'fields'=>array('id')            
+            ));
 
-            //アップロードエラー、ファイルサイズのエラーを検出
-            $message = $this->FileUpload->UploadValidation($MAX_FILE_SIZE);
-            //拡張子を取得する
-            $imagesize = getimagesize($_FILES['image']['tmp_name']);
-            //拡張子のエラーを検出
-            $message = $this->FileUpload->UploadValidation($imagesize);
-            //拡張子のタイプを検出
-            $ext = $this->FileUpload->GetImageType($imagesize);
-            //オリジナルの画像のファイル名を設定する
-            $imageFileName = sha1(time().mt_rand()).$ext;
-            //移動先のパスを指定する
-            $imageFilePath = $IMAGES_DIR.'/'.$imageFileName;
-            //ファイルをtmpからオリジナルイメージを入れるフォルダに移動
-            $message = $this->FileUpload->UploadToOriginalImageFolder($imageFilePath);
-            //画像をリサイズする
-            $thumbImage = $this->FileUpload->MakeResizeImage($imageFilePath,$imageFileName,$imagesize,$THUMBNAIL_WIDTH);
-            //リサイズした画像をアップロードする
-            $this->FileUpload->UploadTHUMBNAILS_DIR($imagesize,$thumbImage , $THUMBNAILS_DIR , $imageFileName);
-            // //UserImageテーブルにパスを保存する
-            // $UserImageInfo = array('UserImage' => array(
-            //     'user_id' => $this->request->data['id'],
-            //     'path' => $imageFileName
-            // ));
-            // $flg = $this->UserImage->save($UserImageInfo);
-            // //DBのsaveの判定
-            // if($flg){
-            //     $message = array('result' => 'success');
-            // } else {
-            //     $message = array('result' => 'error', 'detail' => 'DatabaseSaveErrror');
-            // }
+            //idがあった時
+            if(!empty($user_exsitance)){
+
+                //変数の設定
+                $IMAGES_DIR = $WebrootFileDir.'/UserOriginalImages';
+                $THUMBNAILS_DIR = $WebrootFileDir.'/UserThumbnailImages';
+                $THUMBNAIL_WIDTH = 72;
+                $MAX_FILE_SIZE = 307200;
+
+                //アップロードエラー、ファイルサイズのエラーを検出
+                $message = $this->FileUpload->UploadValidation($MAX_FILE_SIZE);
+                //拡張子を取得する
+                $imagesize = getimagesize($_FILES['image']['tmp_name']);
+                //拡張子のエラーを検出
+                $message = $this->FileUpload->UploadValidation($imagesize);
+                //拡張子のタイプを検出
+                $ext = $this->FileUpload->GetImageType($imagesize);
+                //オリジナルの画像のファイル名を設定する
+                $imageFileName = sha1(time().mt_rand()).$ext;
+                //移動先のパスを指定する
+                $imageFilePath = $IMAGES_DIR.'/'.$imageFileName;
+                //ファイルをtmpからオリジナルイメージを入れるフォルダに移動
+                $message = $this->FileUpload->UploadToOriginalImageFolder($imageFilePath);
+                //画像をリサイズする
+                $thumbImage = $this->FileUpload->MakeResizeImage($imageFilePath,$imageFileName,$imagesize,$THUMBNAIL_WIDTH);
+                //リサイズした画像をアップロードする
+                $this->FileUpload->UploadTHUMBNAILS_DIR($imagesize,$thumbImage , $THUMBNAILS_DIR , $imageFileName);
+                //UserImageテーブルにパスを保存する
+                $UserImageInfo = array('UserImage' => array(
+                    'user_id' => $id,
+                    'path' => $imageFileName
+                ));
+                $flg = $this->UserImage->save($UserImageInfo);
+                //DBのsaveの判定
+                if($flg){
+                    $message = array('result' => 'success' , 'FilePath' => 'http://mory.weblike.jp/Grabbb/app/webroot/UserThumbnailImages/' .$imageFileName);
+                } else {
+                    $message = array('result' => 'error', 'detail' => 'DatabaseSaveErrror');
+                }
+            } else {
+                $message = array('result' => 'errror' , 'detail' => 'idExsitence');
+            }
         } else {
-            $message = array('result' => 'errror' , 'detail' => 'idExsitence');
+            $message = array('result' => 'errror' , 'detail' => 'FileSize' . $_FILES['image']['size'] );
         }
+
         //jsonを返す
-        $message = 'hage';
         $this->set(array(
             'message' => $message,
             '_serialize' => array('message')
         ));
     }
+
 }

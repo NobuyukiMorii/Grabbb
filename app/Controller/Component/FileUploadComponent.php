@@ -14,7 +14,9 @@ class FileUploadComponent extends Component
         }
         if(isset($message)){
             return $message;
-        } 
+        } else {
+            return null;
+        }
     }
 
     public function ImageTypeValidation($imagesize){
@@ -32,7 +34,9 @@ class FileUploadComponent extends Component
         }
         if(isset($message)){
             return $message;
-        } 
+        } else {
+            return null;
+        }
     }
 
     public function GetImageType($imagesize){
@@ -50,7 +54,9 @@ class FileUploadComponent extends Component
         }
         if(isset($ext)){
             return $ext;
-        } 
+        } else {
+            return null;
+        }
     }
 
     public function UploadToOriginalImageFolder($imageFilePath){
@@ -62,7 +68,9 @@ class FileUploadComponent extends Component
         }
         if(isset($message)){
             return $message;
-        } 
+        } else {
+            return null;
+        }
     }
 
     //画像をリサイズする
