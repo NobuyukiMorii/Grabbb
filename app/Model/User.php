@@ -10,7 +10,12 @@ class User extends AppModel {
         'UserLocation' => array(
             'className'  => 'UserLocation',
             'foreignKey'    => 'user_id',
-        )
+            'order'      => 'created DESC'
+        ),
+        'UserMessage' => array(
+            'className'  => 'UserMessage',
+            'foreignKey'    => 'user_id',
+        ) 
     );
 
     public $validate = array(

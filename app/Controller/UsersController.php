@@ -2,7 +2,7 @@
 // Controller/UsersController.php
 class UsersController extends AppController {
 
-    public $uses = array('User' , 'UserImage' , 'UserLocation');
+    public $uses = array('User' , 'UserImage' , 'UserLocation' , 'UserMessage');
 
     public $components = array('RequestHandler','WebrootFileDir' ,'FileUpload');
 
@@ -241,11 +241,41 @@ class UsersController extends AppController {
         $location_data['latitude'] = $this->request->data['latitude'];
         $location_data['longitude'] = $this->request->data['longitude'];
 
+    /*
+    *ログインユーザーで近い人を検索
+    */
+        //①ログイン状態のユーザーを抽出する
+        $login_users = $this->User->find('all', array(
+            'conditions' => array('status' => 1)
+        ));
+        //②ログインユーザーの緯度と経度から直線距離を算出する（新しい順）
+        $i = 0;
+        foreach ($login_users as $key => $value) {
+            if(isset($value['UserLocation'][0]['latitude'])){
+            if(isset($value['UserLocation'][0]['longitude'])){
+                $latitude_diff = abs($location_data['latitude'] - $value['UserLocation'][0]['latitude']);
+                $longitude_diff = abs($location_data['longitude'] - $value['UserLocation'][0]['longitude']);
+                $distance = sqrt($latitude_diff * $latitude_diff + $longitude_diff * $longitude_diff);
+                $value['distance'] = $distance;
+                $distance_key[$key] = $value['distance'];
+                $near_users[$key] = $value;
+            }} 
+        }
+        //③並び替える
+        array_multisort ($distance_key , SORT_ASC , $near_users);
+
+    /*
+    *エラー処理
+    */
         //idがない場合はエグジット
         $user_id_exsitance = $this->User->find('first' , array(
             'conditions' =>array('id' => $this->request->data['id']),
             'fields'=>array('id')            
         ));
+
+    /*
+    *緯度と経度を取得して、保存
+    */
         if(empty($user_id_exsitance)) {
             $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
         } else {
@@ -258,7 +288,7 @@ class UsersController extends AppController {
                 $this->UserLocation->create();
                 $flg = $this->UserLocation->save($location_data);  
                 if($flg){
-                    $message = array('result' => 'success' , 'location_log_id' => $this->UserLocation->getLastInsertID(), 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
+                    $message = array('result' => 'success' , 'near_users' => $near_users , 'location_log_id' => $this->UserLocation->getLastInsertID(), 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
                 } else {
                     $message = array('result' => 'error' , 'detail' => 'CreateError');
                 }
@@ -270,13 +300,63 @@ class UsersController extends AppController {
 
                 $flg = $this->UserLocation->save($location_data);  
                 if($flg){
-                    $message = array('result' => 'success' , 'location_log_id' => $location_log['UserLocation']['id'] , 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
+                    $message = array('result' => 'success' , 'near_users' => $near_users , 'location_log_id' => $location_log['UserLocation']['id'] , 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
                 } else {
                     $message = array('result' => 'error' , 'detail' => 'UpdateError');
                 }
             }
         }
-         $this->set(array('message' => $message, '_serialize' => array('message')));
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+    }
+
+    public function ControlConversation(){
+        $data['user_id'] = $this->request->data['id'];
+        $data['partner_id'] = $this->request->data['partner_id'];
+        $data['message'] = $this->request->data['message'];
+
+        //idがない場合はエグジット
+        $user_id_exsitance = $this->User->find('all' , array(
+            'conditions' => array(
+                'AND' => array(
+                    'id' => array($data['user_id'],$data['partner_id'])
+                )
+            ),           
+        ));
+
+        if(empty($user_id_exsitance)) {
+            $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
+        } else {
+            $this->UserMessage->create();
+            $this->UserMessage->save($data);
+
+            $PastConversation = $this->UserMessage->find('all' , array(
+                'conditions' => array(
+                    'OR' =>
+                        array(
+                               'AND' => array(
+                                              array('user_id' => $data['user_id']),
+                                              array('partner_id' => $data['partner_id'])
+                                        ),
+                               'AND' => array(
+                                              array('partner_id' => $data['partner_id'],
+                                              array('user_id' => $data['user_id'])
+                                        ),
+                        ),
+                )
+            )));
+            $message = array('result' => 'success' , 'id' => $PastConversation);
+        }
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+    }
+
+    public function suggest_cafe(){
+
+
+
+        
+
+
+
     }
 
 }
