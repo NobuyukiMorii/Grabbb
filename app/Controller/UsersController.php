@@ -193,7 +193,7 @@ class UsersController extends AppController {
                 //変数の設定
                 $IMAGES_DIR = $WebrootFileDir.'/UserOriginalImages';
                 $THUMBNAILS_DIR = $WebrootFileDir.'/UserThumbnailImages';
-                $THUMBNAIL_WIDTH = 72;
+                $THUMBNAIL_WIDTH = 200;
                 $MAX_FILE_SIZE = 307200;
 
                 //アップロードエラー、ファイルサイズのエラーを検出
@@ -222,7 +222,7 @@ class UsersController extends AppController {
                 $flg = $this->UserImage->save($UserImageInfo);
                 //DBのsaveの判定
                 if($flg){
-                    $message = array('result' => 'success' , 'FilePath' => 'http://mory.weblike.jp/Grabbb/app/webroot/UserThumbnailImages/' .$imageFileName);
+                    $message = array('result' => 'success' , 'FilePath' => 'http://mory.weblike.jp/Grabbb/app/webroot/UserOriginalImages/' .$imageFileName);
                 } else {
                     $message = array('result' => 'error', 'detail' => 'DatabaseSaveErrror');
                 }
