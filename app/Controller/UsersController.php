@@ -589,17 +589,49 @@ class UsersController extends AppController {
         ));
         /*
         *ユーザーが範囲内にいなかった時
-
         */
         if(empty($users)){
-            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'NoUsers');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
+        }
+
+        /*
+        *緯度と経度を取得して、保存
+        */
+        $location_log = $this->UserLocation->find('first' , array(
+            'conditions' => array('user_id' => $id)
+        ));
+        /*
+        *user_locationにuser_idが存在しない時
+        */
+        unset($this->request->data['distance']);
+        if(!$location_log){
+            $this->UserLocation->create();
+            $flg = $this->UserLocation->save($this->request->data);  
+            if($flg){
+                $message = array('result' => 'success' , 'latitude' => $this->request->data['latitude'], 'longitude' => $this->request->data['longitude'] , 'near_users' => $users);
+            } else {
+                $message = array('result' => 'error' , 'detail' => 'CreateError');
+            }
+           
+        }
+        /*
+        *user_locationが存在する時
+        */
+        if($location_log){
+            $this->UserLocation->id = $location_log['UserLocation']['id'];
+            $location_data['natural_id'] = $location_log['UserLocation']['id'];
+            $flg = $this->UserLocation->save($location_data);  
+            if($flg){
+                $message = array('result' => 'success' , 'latitude' => $this->request->data['latitude'], 'longitude' => $this->request->data['longitude'] , 'near_users' => $users);
+            } else {
+                $message = array('result' => 'error' , 'detail' => 'UpdateError');
+            }
         }
         /*
         *メッセージを返す
         */       
-        $message = array('result' => 'success' , 'users' => $users);
         $this->set(array('message' => $message, '_serialize' => array('message')));
 
     }
