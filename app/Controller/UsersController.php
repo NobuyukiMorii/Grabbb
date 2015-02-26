@@ -2,7 +2,7 @@
 // Controller/UsersController.php
 class UsersController extends AppController {
 
-    public $uses = array('User' , 'UserImage' , 'UserLocation' , 'UserMessage');
+    public $uses = array('User' , 'UserImage' , 'UserLocation' , 'UserMessage' , 'UserRoom');
 
     public $components = array('RequestHandler','WebrootFileDir' ,'FileUpload' , 'Gurunabi');
 
@@ -246,7 +246,7 @@ class UsersController extends AppController {
         /*
         *変数を設定
         */
-        $location_data['natural_id'] = null;
+        $location_data['id'] = null;
         $location_data['user_id'] = $this->request->data['id'];
         $location_data['latitude'] = $this->request->data['latitude'];
         $location_data['longitude'] = $this->request->data['longitude'];
@@ -313,7 +313,7 @@ class UsersController extends AppController {
         */
         if($location_log){
             $this->UserLocation->id = $location_log['UserLocation']['id'];
-            $location_data['natural_id'] = $location_log['UserLocation']['id'];
+            $location_data['id'] = $location_log['UserLocation']['id'];
 
             $flg = $this->UserLocation->save($location_data);  
             if($flg){
@@ -356,38 +356,85 @@ class UsersController extends AppController {
             return;
         }
         /*
-        *メッセージが入っていた場合はsaveする
-        */
-        if(isset($this->request->data['message'])){
-            $data['message'] = $this->request->data['message'];
-            $this->UserMessage->create();
-            $this->UserMessage->save($data);
-        }
-        /*
         *過去の投稿を検索する
         */
-        $PastConversation = $this->UserMessage->find('all' , array(
+        $PastChatForUser_id = $this->UserMessage->find('all' , array(
             'conditions' => array(
-                'OR' =>
-                    array(
-                           'AND' => array(
-                                          array('UserMessage.user_id' => $data['user_id']),
-                                          array('UserMessage.partner_id' => $data['partner_id'])
-                                    ),
-                           'AND' => array(
-                                          array('UserMessage.partner_id' => $data['partner_id'],
-                                          array('UserMessage.user_id' => $data['user_id'])
-                                    ),
-                    ),
+                'UserMessage.user_id' => $data['user_id'],
+                'UserMessage.partner_id' => $data['partner_id']
             )
-        )));
-        if(empty($PastConversation)) {
-            $message = array('result' => 'errror' , 'detail' => 'PastConversation');
+        ));
+        $PastChatForPartner_id = $this->UserMessage->find('all' , array(
+            'conditions' => array(
+                'UserMessage.partner_id' => $data['user_id'],
+                'UserMessage.user_id' => $data['partner_id']
+            )
+        ));
+        /*
+        *過去の投稿が１件もない場合にはChatRoomを作成する
+        */
+        if(empty($PastChatForUser_id) && empty($PastChatForPartner_id)){
+            $this->UserRoom->create();
+            $group_data = $this->UserRoom->save($data);
+            /*
+            *saveに失敗したらエラーメッセージ
+            */
+            if(empty($group_data)){
+                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
+            /*
+            *メッセージを保存
+            */
+            $data['message'] = $this->request->data['message'];
+            $data['user_room_id'] = $this->UserRoom->getLastInsertID();
+            $this->UserMessage->create();
+            $message_data = $this->UserMessage->save($data);
+
+            /*
+            *saveに失敗したらエラーメッセージ
+            */
+            if(empty($message_data)){
+                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
+            $message = array('result' => 'success' , 'user_room_id' => $UssrMessage['UserMessage']['user_room_id']);
             $this->set(array('message' => $message, '_serialize' => array('message')));
             return;
         }
-        $message = array('result' => 'success' , 'chat' => $PastConversation);
-        $this->set(array('message' => $message, '_serialize' => array('message')));
+        if(!empty($PastChatForUser_id) || !empty($PastChatForPartner_id)){
+            /*
+            *id側の投稿があれば、そのルームidを設定する
+            */
+            if(!empty($PastChatForUser_id)){
+                $data['user_room_id'] = $PastChatForUser_id[0]['UserMessage']['user_room_id'];
+            }
+            /*
+            *partner側の投稿があれば、そのルームidを設定する
+            */
+            if(!empty($PastChatForPartner_id)){
+                $data['user_room_id'] = $PastChatForPartner_id[0]['UserMessage']['user_room_id'];
+            }
+            /*
+            *メッセージの保存
+            */
+            $data['message'] = $this->request->data['message'];
+            $this->UserMessage->create();
+            $message_data = $this->UserMessage->save($data);
+            /*
+            *saveに失敗したらエラーメッセージ
+            */
+            if(empty($message_data)){
+                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }    
+            $message = array('result' => 'success' , 'user_room_id' => $data['user_room_id']);
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
     }
 
     public function suggest_cafe(){
@@ -465,7 +512,47 @@ class UsersController extends AppController {
         $cafes = $this->Gurunabi->parse_xml_to_array($gurunabi_url);
         //連想配列から特定の値を取り出す
         $cafes = $this->Gurunabi->get_rest_info($cafes);
-        $message = array('result' => 'success' , 'cafe' => $cafes);
+        /*
+        *位置情報を保存する
+        */
+        /*
+        *変数を設定
+        */
+        $location_data['id'] = null;
+        $location_data['user_id'] = $this->request->data['id'];
+        $location_data['latitude'] = $this->request->data['latitude'];
+        $location_data['longitude'] = $this->request->data['longitude'];
+        //user_locationテーブルのuser_idの数をカウント
+        $location_log = $this->UserLocation->find('first' , array(
+            'conditions' => array('user_id' => $this->request->data['id'])
+        ));
+        /*
+        *user_locationにuser_idが存在しない時
+        */
+        if(!$location_log){
+            $this->UserLocation->create();
+            $flg = $this->UserLocation->save($location_data);  
+            if($flg){
+                $message = array('result' => 'success' , 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude'] , 'cafes' => $cafes);
+            } else {
+                $message = array('result' => 'error' , 'detail' => 'CreateError');
+            }
+           
+        }
+        /*
+        *user_locationが存在する時
+        */
+        if($location_log){
+            $this->UserLocation->id = $location_log['UserLocation']['id'];
+            $location_data['id'] = $location_log['UserLocation']['id'];
+
+            $flg = $this->UserLocation->save($location_data);  
+            if($flg){
+                $message = array('result' => 'success' , 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude'] , 'cafes' => $cafes);
+            } else {
+                $message = array('result' => 'error' , 'detail' => 'UpdateError');
+            }
+        }
         $this->set(array('message' => $message, '_serialize' => array('message')));
 
     }
@@ -591,47 +678,14 @@ class UsersController extends AppController {
         *ユーザーが範囲内にいなかった時
         */
         if(empty($users)){
-            $message = array('result' => 'error' , 'detail' => 'NoUsers');
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
-        }
-
-        /*
-        *緯度と経度を取得して、保存
-        */
-        $location_log = $this->UserLocation->find('first' , array(
-            'conditions' => array('user_id' => $id)
-        ));
-        /*
-        *user_locationにuser_idが存在しない時
-        */
-        unset($this->request->data['distance']);
-        if(!$location_log){
-            $this->UserLocation->create();
-            $flg = $this->UserLocation->save($this->request->data);  
-            if($flg){
-                $message = array('result' => 'success' , 'latitude' => $this->request->data['latitude'], 'longitude' => $this->request->data['longitude'] , 'near_users' => $users);
-            } else {
-                $message = array('result' => 'error' , 'detail' => 'CreateError');
-            }
-           
-        }
-        /*
-        *user_locationが存在する時
-        */
-        if($location_log){
-            $this->UserLocation->id = $location_log['UserLocation']['id'];
-            $location_data['natural_id'] = $location_log['UserLocation']['id'];
-            $flg = $this->UserLocation->save($location_data);  
-            if($flg){
-                $message = array('result' => 'success' , 'latitude' => $this->request->data['latitude'], 'longitude' => $this->request->data['longitude'] , 'near_users' => $users);
-            } else {
-                $message = array('result' => 'error' , 'detail' => 'UpdateError');
-            }
         }
         /*
         *メッセージを返す
         */       
+        $message = array('result' => 'success' , 'users' => $users);
         $this->set(array('message' => $message, '_serialize' => array('message')));
 
     }

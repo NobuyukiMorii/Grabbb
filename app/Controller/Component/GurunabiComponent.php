@@ -8,21 +8,18 @@ class GurunabiComponent extends Component {
         $api = 'http://api.gnavi.co.jp/ver1/RestSearchAPI/?';
         //キーの指定
         $key = '6f13d54e08f1c5397b1aaa3091cab074';
-        //緯度
-        $lati = 35.65858;
-        $long = 139.745433;
-        //レンジの指定（半径500m以内）
-        $range = 3;
-        //１回に検索する上限数
-        $hit_per_page = 10;
+        //レンジの指定（半径2000m以内）
+        $range = 4;
         //jsonに設定
         $format = 'xml';
         //世界緯度系に設定
         $coordinates_mode = 2;
         //小業態コード
         $category_s = 'RSFST18014';
+        //ヒット件数
+        $hit_per_page = 99;
         //アクセスするurlの指定
-        $query = $api.'keyid='.$key.'&latitude='.$lati.'&longitude='.$long.'&range='.$range.'&hit_per_page='.$hit_per_page.'&format='.$format.'&coordinates_mode='.$coordinates_mode.'&category_s='.$category_s;
+        $query = $api.'keyid='.$key.'&latitude='.$lati.'&longitude='.$long.'&range='.$range.'&format='.$format.'&hit_per_page='.$hit_per_page.'&coordinates_mode='.$coordinates_mode.'&category_s='.$category_s;
         //値を返す
         return $query;
     }
