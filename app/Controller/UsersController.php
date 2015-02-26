@@ -239,7 +239,7 @@ class UsersController extends AppController {
         *リクエストがない場合のエラー
         */
         if(empty($this->request->data)){
-            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
@@ -331,7 +331,7 @@ class UsersController extends AppController {
         *リクエストがない場合のエラー
         */
         if(empty($this->request->data)){
-            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
@@ -395,7 +395,7 @@ class UsersController extends AppController {
         *リクエストがない場合のエラー
         */
         if(empty($this->request->data)){
-            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
@@ -453,7 +453,7 @@ class UsersController extends AppController {
         *リクエストがない場合のエラー
         */
         if(empty($this->request->data)){
-            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
@@ -475,7 +475,7 @@ class UsersController extends AppController {
         *リクエストがない場合のエラー
         */
         if(empty($this->request->data)){
-            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
@@ -542,5 +542,67 @@ class UsersController extends AppController {
         $this->set(array('message' => $message, '_serialize' => array('message')));
 
     }
+
+
+    public function find_users_around_cafe(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *変数を定義
+        */
+        //id
+        $id = $this->request->data['id'];
+        //緯度
+        $latitude = $this->request->data['latitude'];
+        //経度
+        $longitude = $this->request->data['longitude'];
+        //距離
+        $distance = $this->request->data['distance'];
+        /*
+        *緯度と経度の範囲を計算
+        *http://blog.epitaph-t.com/?p=172
+        */
+        $plus_latitude = $latitude + ($distance / 30.8184 * 0.000277778);
+        $plus_longitude = $longitude + ($distance / 25.2450 * 0.000277778);
+        $minus_latitude = $latitude - ($distance / 30.8184 * 0.000277778);
+        $minus_longitude = $longitude  - ($distance / 25.2450 * 0.000277778);
+        /*
+        *データベースから範囲内のユーザーを検索する
+        */
+        $users = $this->UserLocation->find('all' , array(
+            'conditions' => array(
+                'AND' =>
+                    array(
+                        array('latitude >=' =>  $minus_latitude),
+                        array('latitude <=' =>  $plus_latitude),
+                        array('longitude >=' =>  $minus_longitude),
+                        array('longitude <=' =>  $plus_longitude),
+                        array('NOT' => array('user_id' => $id))
+                    ),
+            )
+        ));
+        /*
+        *ユーザーが範囲内にいなかった時
+
+        */
+        if(empty($users)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *メッセージを返す
+        */       
+        $message = array('result' => 'success' , 'users' => $users);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+
+    }
+
 
 }
