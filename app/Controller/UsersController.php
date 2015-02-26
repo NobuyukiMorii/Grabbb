@@ -4,7 +4,7 @@ class UsersController extends AppController {
 
     public $uses = array('User' , 'UserImage' , 'UserLocation' , 'UserMessage');
 
-    public $components = array('RequestHandler','WebrootFileDir' ,'FileUpload');
+    public $components = array('RequestHandler','WebrootFileDir' ,'FileUpload' , 'Gurunabi');
 
     public function index() {
         $users = $this->User->find('all');
@@ -235,15 +235,25 @@ class UsersController extends AppController {
     }
 
     public function trace_user(){
-        //変数を設定
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *変数を設定
+        */
         $location_data['natural_id'] = null;
         $location_data['user_id'] = $this->request->data['id'];
         $location_data['latitude'] = $this->request->data['latitude'];
         $location_data['longitude'] = $this->request->data['longitude'];
 
-    /*
-    *ログインユーザーで近い人を検索
-    */
+        /*
+        *ログインユーザーで近い人を検索
+        */
         //①ログイン状態のユーザーを抽出する
         $login_users = $this->User->find('all', array(
             'conditions' => array('status' => 1)
@@ -264,57 +274,75 @@ class UsersController extends AppController {
         //③並び替える
         array_multisort ($distance_key , SORT_ASC , $near_users);
 
-    /*
-    *エラー処理
-    */
+        /*
+        *エラー処理
+        */
         //idがない場合はエグジット
         $user_id_exsitance = $this->User->find('first' , array(
             'conditions' =>array('id' => $this->request->data['id']),
             'fields'=>array('id')            
         ));
-
-    /*
-    *緯度と経度を取得して、保存
-    */
         if(empty($user_id_exsitance)) {
             $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
-        } else {
-            //user_locationテーブルのuser_idの数をカウント
-            $location_log = $this->UserLocation->find('first' , array(
-                'conditions' => array('user_id' => $location_data['user_id'])
-            ));
-            //user_locationにuser_idが存在しない時
-            if(!$location_log){
-                $this->UserLocation->create();
-                $flg = $this->UserLocation->save($location_data);  
-                if($flg){
-                    $message = array('result' => 'success' , 'near_users' => $near_users , 'location_log_id' => $this->UserLocation->getLastInsertID(), 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
-                } else {
-                    $message = array('result' => 'error' , 'detail' => 'CreateError');
-                }
-               
-            } else {
-                //user_locationにuser_idが存在する時
-                $this->UserLocation->id = $location_log['UserLocation']['id'];
-                $location_data['natural_id'] = $location_log['UserLocation']['id'];
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        /*
+        *緯度と経度を取得して、保存
+        */
 
-                $flg = $this->UserLocation->save($location_data);  
-                if($flg){
-                    $message = array('result' => 'success' , 'near_users' => $near_users , 'location_log_id' => $location_log['UserLocation']['id'] , 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
-                } else {
-                    $message = array('result' => 'error' , 'detail' => 'UpdateError');
-                }
+        //user_locationテーブルのuser_idの数をカウント
+        $location_log = $this->UserLocation->find('first' , array(
+            'conditions' => array('user_id' => $location_data['user_id'])
+        ));
+        /*
+        *user_locationにuser_idが存在しない時
+        */
+        if(!$location_log){
+            $this->UserLocation->create();
+            $flg = $this->UserLocation->save($location_data);  
+            if($flg){
+                $message = array('result' => 'success' , 'near_users' => $near_users , 'location_log_id' => $this->UserLocation->getLastInsertID(), 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
+            } else {
+                $message = array('result' => 'error' , 'detail' => 'CreateError');
+            }
+           
+        }
+        /*
+        *user_locationが存在する時
+        */
+        if($location_log){
+            $this->UserLocation->id = $location_log['UserLocation']['id'];
+            $location_data['natural_id'] = $location_log['UserLocation']['id'];
+
+            $flg = $this->UserLocation->save($location_data);  
+            if($flg){
+                $message = array('result' => 'success' , 'near_users' => $near_users , 'location_log_id' => $location_log['UserLocation']['id'] , 'latitude' => $location_data['latitude'], 'longitude' => $location_data['longitude']);
+            } else {
+                $message = array('result' => 'error' , 'detail' => 'UpdateError');
             }
         }
+        
         $this->set(array('message' => $message, '_serialize' => array('message')));
     }
 
     public function ControlConversation(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *変数を設定する
+        */
         $data['user_id'] = $this->request->data['id'];
         $data['partner_id'] = $this->request->data['partner_id'];
-        $data['message'] = $this->request->data['message'];
-
-        //idがない場合はエグジット
+        /*
+        *idがない場合はエグジット
+        */
         $user_id_exsitance = $this->User->find('all' , array(
             'conditions' => array(
                 'AND' => array(
@@ -322,40 +350,196 @@ class UsersController extends AppController {
                 )
             ),           
         ));
-
         if(empty($user_id_exsitance)) {
             $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
-        } else {
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        /*
+        *メッセージが入っていた場合はsaveする
+        */
+        if(isset($this->request->data['message'])){
+            $data['message'] = $this->request->data['message'];
             $this->UserMessage->create();
             $this->UserMessage->save($data);
-
-            $PastConversation = $this->UserMessage->find('all' , array(
-                'conditions' => array(
-                    'OR' =>
-                        array(
-                               'AND' => array(
-                                              array('user_id' => $data['user_id']),
-                                              array('partner_id' => $data['partner_id'])
-                                        ),
-                               'AND' => array(
-                                              array('partner_id' => $data['partner_id'],
-                                              array('user_id' => $data['user_id'])
-                                        ),
-                        ),
-                )
-            )));
-            $message = array('result' => 'success' , 'id' => $PastConversation);
         }
+        /*
+        *過去の投稿を検索する
+        */
+        $PastConversation = $this->UserMessage->find('all' , array(
+            'conditions' => array(
+                'OR' =>
+                    array(
+                           'AND' => array(
+                                          array('UserMessage.user_id' => $data['user_id']),
+                                          array('UserMessage.partner_id' => $data['partner_id'])
+                                    ),
+                           'AND' => array(
+                                          array('UserMessage.partner_id' => $data['partner_id'],
+                                          array('UserMessage.user_id' => $data['user_id'])
+                                    ),
+                    ),
+            )
+        )));
+        if(empty($PastConversation)) {
+            $message = array('result' => 'errror' , 'detail' => 'PastConversation');
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        $message = array('result' => 'success' , 'chat' => $PastConversation);
         $this->set(array('message' => $message, '_serialize' => array('message')));
     }
 
     public function suggest_cafe(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *変数の設定
+        */
+        $id = $this->request->data['id'];
+        $partner_id = $this->request->data['partner_id'];
+        /*
+        *$idユーザーの位置情報を取得
+        */
+        $id_location = $this->UserLocation->find('first' ,array(
+            'conditions' => array('user_id' => $id),
+            'order' => array('UserLocation.created DESC'), 
+        ));
+        if(empty($id_location)){
+            $message = array('result' => 'error' , 'detail' => 'NoIdLocation');
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        /*
+        *$partner_idのユーザーの位置情報を取得
+        */
+        $partner_location = $this->UserLocation->find('first' ,array(
+            'conditions' => array('user_id' => $partner_id),
+            'order' => array('UserLocation.created DESC'), 
+        ));
+        if(empty($partner_location)){
+            $message = array('result' => 'error' , 'detail' => 'NoPartner_IdLocation');
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        /*
+        *中間地点を計算
+        */
+        $middle_location['latitude'] = ($id_location['UserLocation']['latitude'] + $partner_location['UserLocation']['latitude']) * 0.5;
+        $middle_location['longitude'] = ($id_location['UserLocation']['longitude'] + $partner_location['UserLocation']['longitude']) * 0.5;
+        /*
+        *ぐるなびにアクセス
+        */
+        $gurunabi_url = $this->Gurunabi->make_gnaviapi_url($middle_location['latitude'] , $middle_location['longitude']);
+        //xml形式のデータを連想配列のデータに変更する
+        $cafes = $this->Gurunabi->parse_xml_to_array($gurunabi_url);
+        //連想配列から特定の値を取り出す
+        $cafes = $this->Gurunabi->get_rest_info($cafes);
+        $message = array('result' => 'success' , 'cafe' => $cafes);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+
+    }
 
 
+    //緯度と経度をゆーきから送ってもらえる
+    public function suggest_cafe_around_user(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *ぐるなびにアクセス
+        */
+        $gurunabi_url = $this->Gurunabi->make_gnaviapi_url($this->request->data['latitude'] , $this->request->data['longitude']);
+        //xml形式のデータを連想配列のデータに変更する
+        $cafes = $this->Gurunabi->parse_xml_to_array($gurunabi_url);
+        //連想配列から特定の値を取り出す
+        $cafes = $this->Gurunabi->get_rest_info($cafes);
+        $message = array('result' => 'success' , 'cafe' => $cafes);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
 
-        
+    }
 
+    public function get_transfer_time(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'success' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *変数の設定
+        */
+        $id = $this->request->data['id'];
+        $partner_id = $this->request->data['partner_id'];
+        /*
+        *$idユーザーの位置情報を取得
+        */
+        $id_location = $this->UserLocation->find('first' ,array(
+            'conditions' => array('user_id' => $id),
+            'order' => array('UserLocation.created DESC'), 
+        ));
+        if(empty($id_location)){
+            $message = array('result' => 'error' , 'detail' => 'NoIdLocation');
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        /*
+        *$partner_idのユーザーの位置情報を取得
+        */
+        $partner_location = $this->UserLocation->find('first' ,array(
+            'conditions' => array('user_id' => $partner_id),
+            'order' => array('UserLocation.created DESC'), 
+        ));
+        if(empty($partner_location)){
+            $message = array('result' => 'error' , 'detail' => 'NoPartner_IdLocation');
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        /*
+        *お店の緯度と経度を取得
+        */
+        $cafe_location['latitude'] = $this->request->data['shop_latitude'];
+        $cafe_location['longitude'] = $this->request->data['shop_longitude'];
 
+        /*
+        *サンプルデータの代入
+        */
+        //東京周辺
+        $cafe_location['latitude'] = 35.65858;
+        $cafe_location['longitude'] = 139.745433;
+        //神田周辺
+        $id_location['UserLocation']['latitude'] = 35.69169;
+        $id_location['UserLocation']['longitude'] = 139.770883;
+        //新橋周辺
+        $partner_location['UserLocation']['latitude'] = 35.665498;
+        $partner_location['UserLocation']['longitude'] = 139.75964;
+
+        //$idユーザーとお店との距離
+        $GoogleMapsApiUrl ='http://maps.googleapis.com/maps/api/distancematrix/xml?origins='.$id_location['UserLocation']['latitude'].','.$id_location['UserLocation']['longitude'].'&destinations='.$cafe_location['latitude'].','.$cafe_location['longitude'].'&mode=walk&language=ja&sensor=false';
+        $transfer_cost['id'] = simplexml_load_file($GoogleMapsApiUrl);
+
+        //$user_idユーザーとお店との距離
+        $GoogleMapsApiUrl ='http://maps.googleapis.com/maps/api/distancematrix/xml?origins='.$partner_location['UserLocation']['latitude'].','.$partner_location['UserLocation']['longitude'].'&destinations='.$cafe_location['latitude'].','.$cafe_location['longitude'].'&mode=walk&language=ja&sensor=false';
+        $transfer_cost['partner'] = simplexml_load_file($GoogleMapsApiUrl); 
+
+        /*
+        *メッセージを返す
+        */       
+        $message = array('result' => 'success' , 'id' => $transfer_cost);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
 
     }
 
