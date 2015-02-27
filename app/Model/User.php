@@ -15,7 +15,7 @@ class User extends AppModel {
         'UserMessage' => array(
             'className'  => 'UserMessage',
             'foreignKey'    => 'user_id',
-        ) 
+        ),
     );
 
     public $validate = array(

@@ -677,6 +677,7 @@ class UsersController extends AppController {
                         array('latitude <=' =>  $plus_latitude),
                         array('longitude >=' =>  $minus_longitude),
                         array('longitude <=' =>  $plus_longitude),
+                        array('NOT' => array('UserLocation.user_id' => $id))
                     ),
             ),
             'order' => array('created DESC')
@@ -709,5 +710,69 @@ class UsersController extends AppController {
 
     }
 
+    public function return_room_id(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *id名からグループ名を検索
+        */
+        $this->UserRoom->unbindModel(array(
+            'belongsTo' => array('User'),
+            'hasMany' => array('UserMessage'),
+            )
+        );
+        $rooms = $this->UserRoom->find('all' , array(
+            'conditions' => array(
+                'OR' =>
+                    array(
+                        array('UserRoom.partner_id' => $this->request->data['id']),
+                        array('UserRoom.user_id' => $this->request->data['id']),
+                    ),
+            ),
+            'order' => array('created DESC')
+        ));
+        /*
+        *メッセージを返す
+        */       
+        $message = array('result' => 'success' , 'rooms' => $rooms);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+
+    }
+
+    public function return_messages(){
+       /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *検索する
+        */
+        $this->UserMessage->unbindModel(
+            array(
+                'belongsTo' => array('UserRoom' , 'User'),
+            )
+        );
+        $messages = $this->UserMessage->find('all' , array(
+            'conditions' => array(
+                'user_room_id' => $this->request->data['user_room_id']
+            )
+        ));
+        /*
+        *メッセージを返す
+        */       
+        $message = array('result' => 'success' , 'messages' => $messages);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+
+    }
 
 }
