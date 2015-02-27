@@ -9,4 +9,11 @@ class UserRoom extends AppModel {
         )
     );
 
+    public $hasMany = array(
+        'UserMessage' => array(
+            'className'  => 'UserMessage',
+            'foreignKey'    => 'user_room_id',
+        )
+    );
+
 }

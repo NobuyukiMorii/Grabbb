@@ -391,7 +391,6 @@ class UsersController extends AppController {
             $data['user_room_id'] = $this->UserRoom->getLastInsertID();
             $this->UserMessage->create();
             $message_data = $this->UserMessage->save($data);
-
             /*
             *saveに失敗したらエラーメッセージ
             */
@@ -400,9 +399,7 @@ class UsersController extends AppController {
                 $this->set(array('message' => $message, '_serialize' => array('message')));   
                 return;
             }
-            $message = array('result' => 'success' , 'user_room_id' => $UssrMessage['UserMessage']['user_room_id']);
-            $this->set(array('message' => $message, '_serialize' => array('message')));
-            return;
+
         }
         if(!empty($PastChatForUser_id) || !empty($PastChatForPartner_id)){
             /*
@@ -430,11 +427,21 @@ class UsersController extends AppController {
                 $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
                 $this->set(array('message' => $message, '_serialize' => array('message')));   
                 return;
-            }    
-            $message = array('result' => 'success' , 'user_room_id' => $data['user_room_id']);
-            $this->set(array('message' => $message, '_serialize' => array('message')));
-            return;
+            }
+
         }
+        /*
+        *グループidから今までのチャットを全件検索する
+        */
+        $all_chat_data = $this->UserMessage->find('all' ,array(
+            'conditions' => array('user_room_id' => $data['user_room_id'])
+        ));
+        /*
+        *サクセスのjsonを返す
+        */
+        $message = array('result' => 'success' , 'user_room_id' => $data['user_room_id'] , 'chat_data' => $all_chat_data);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+        return;
     }
 
     public function suggest_cafe(){
@@ -670,22 +677,34 @@ class UsersController extends AppController {
                         array('latitude <=' =>  $plus_latitude),
                         array('longitude >=' =>  $minus_longitude),
                         array('longitude <=' =>  $plus_longitude),
-                        array('NOT' => array('user_id' => $id))
                     ),
-            )
+            ),
+            'order' => array('created DESC')
         ));
+        /*
+        *ユーザーの情報を全件検索する
+        */
+        foreach ($users as $key => $value) {
+            $this->User->unbindModel(array(
+                'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+                )
+            );
+            $users_info[$key] = $this->User->find('all' , array(
+                'conditions' => array('id' => $value['UserLocation']['user_id'])
+            ));
+        }
         /*
         *ユーザーが範囲内にいなかった時
         */
         if(empty($users)){
-            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'NoUsersHere');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
         /*
         *メッセージを返す
         */       
-        $message = array('result' => 'success' , 'users' => $users);
+        $message = array('result' => 'success' , 'users' => $users , 'user_info' => $users_info);
         $this->set(array('message' => $message, '_serialize' => array('message')));
 
     }
