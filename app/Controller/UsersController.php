@@ -326,124 +326,6 @@ class UsersController extends AppController {
         $this->set(array('message' => $message, '_serialize' => array('message')));
     }
 
-    public function ControlConversation(){
-        /*
-        *リクエストがない場合のエラー
-        */
-        if(empty($this->request->data)){
-            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
-            $this->set(array('message' => $message, '_serialize' => array('message')));   
-            return;
-        }
-        /*
-        *変数を設定する
-        */
-        $data['user_id'] = $this->request->data['id'];
-        $data['partner_id'] = $this->request->data['partner_id'];
-        /*
-        *idがない場合はエグジット
-        */
-        $user_id_exsitance = $this->User->find('all' , array(
-            'conditions' => array(
-                'AND' => array(
-                    'id' => array($data['user_id'],$data['partner_id'])
-                )
-            ),           
-        ));
-        if(empty($user_id_exsitance)) {
-            $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
-            $this->set(array('message' => $message, '_serialize' => array('message')));
-            return;
-        }
-        /*
-        *過去の投稿を検索する
-        */
-        $PastChatForUser_id = $this->UserMessage->find('all' , array(
-            'conditions' => array(
-                'UserMessage.user_id' => $data['user_id'],
-                'UserMessage.partner_id' => $data['partner_id']
-            )
-        ));
-        $PastChatForPartner_id = $this->UserMessage->find('all' , array(
-            'conditions' => array(
-                'UserMessage.partner_id' => $data['user_id'],
-                'UserMessage.user_id' => $data['partner_id']
-            )
-        ));
-        /*
-        *過去の投稿が１件もない場合にはChatRoomを作成する
-        */
-        if(empty($PastChatForUser_id) && empty($PastChatForPartner_id)){
-            $this->UserRoom->create();
-            $group_data = $this->UserRoom->save($data);
-            /*
-            *saveに失敗したらエラーメッセージ
-            */
-            if(empty($group_data)){
-                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
-                $this->set(array('message' => $message, '_serialize' => array('message')));   
-                return;
-            }
-            /*
-            *メッセージを保存
-            */
-            $data['message'] = $this->request->data['message'];
-            $data['user_room_id'] = $this->UserRoom->getLastInsertID();
-            $this->UserMessage->create();
-            $message_data = $this->UserMessage->save($data);
-            /*
-            *saveに失敗したらエラーメッセージ
-            */
-            if(empty($message_data)){
-                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
-                $this->set(array('message' => $message, '_serialize' => array('message')));   
-                return;
-            }
-
-        }
-        if(!empty($PastChatForUser_id) || !empty($PastChatForPartner_id)){
-            /*
-            *id側の投稿があれば、そのルームidを設定する
-            */
-            if(!empty($PastChatForUser_id)){
-                $data['user_room_id'] = $PastChatForUser_id[0]['UserMessage']['user_room_id'];
-            }
-            /*
-            *partner側の投稿があれば、そのルームidを設定する
-            */
-            if(!empty($PastChatForPartner_id)){
-                $data['user_room_id'] = $PastChatForPartner_id[0]['UserMessage']['user_room_id'];
-            }
-            /*
-            *メッセージの保存
-            */
-            $data['message'] = $this->request->data['message'];
-            $this->UserMessage->create();
-            $message_data = $this->UserMessage->save($data);
-            /*
-            *saveに失敗したらエラーメッセージ
-            */
-            if(empty($message_data)){
-                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
-                $this->set(array('message' => $message, '_serialize' => array('message')));   
-                return;
-            }
-
-        }
-        /*
-        *グループidから今までのチャットを全件検索する
-        */
-        $all_chat_data = $this->UserMessage->find('all' ,array(
-            'conditions' => array('user_room_id' => $data['user_room_id'])
-        ));
-        /*
-        *サクセスのjsonを返す
-        */
-        $message = array('result' => 'success' , 'user_room_id' => $data['user_room_id'] , 'chat_data' => $all_chat_data);
-        $this->set(array('message' => $message, '_serialize' => array('message')));
-        return;
-    }
-
     public function suggest_cafe(){
         /*
         *リクエストがない場合のエラー
@@ -698,7 +580,7 @@ class UsersController extends AppController {
         *ユーザーが範囲内にいなかった時
         */
         if(empty($users)){
-            $message = array('result' => 'error' , 'detail' => 'NoUsersHere');
+            $message = array('result' => 'error','detail' => 'NoUsersHere');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
@@ -711,6 +593,8 @@ class UsersController extends AppController {
     }
 
     public function return_room_id(){
+        //自分のidじゃない方を返せ
+
         /*
         *リクエストがない場合のエラー
         */
@@ -723,7 +607,6 @@ class UsersController extends AppController {
         *id名からグループ名を検索
         */
         $this->UserRoom->unbindModel(array(
-            'belongsTo' => array('User'),
             'hasMany' => array('UserMessage'),
             )
         );
@@ -735,8 +618,48 @@ class UsersController extends AppController {
                         array('UserRoom.user_id' => $this->request->data['id']),
                     ),
             ),
-            'order' => array('created DESC')
+            'order' => array('UserRoom.created DESC')
         ));
+        /*
+        *ルームがない時
+        */
+        if(empty($rooms)){
+            $message = array('result' => 'success' , 'rooms' => array() ,'detail' => 'UserHasNoRoom');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        foreach ($rooms as $key => $value) {
+            /*
+            *パートナーidがUseのidと一緒かどうかを判定
+            */
+            //ユーザーがとれていない時のエラーを消す
+            if(empty($value['User'])){
+                $value['User']['id'] = null;
+            }
+            if($value['User']['id'] !== $this->request->data['id']){
+                $rooms[$key]['Partner'] = $value['User'];
+            } 
+            if($value['User']['id'] == $this->request->data['id']){
+                $this->User->unbindModel(array(
+                    'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+                    )
+                );
+                $Partner = $this->User->find('first' ,array(
+                    'conditions' => array('id' => $value['UserRoom']['partner_id'] )
+                ));
+                //Partnerのidが存在しなかった時
+                if(empty($Partner['User'])){
+                    $Partner['User']['id'] = null;
+                    $Partner['User']['user_id'] = null;
+                    $Partner['User']['partner_id'] = null;
+                    $Partner['User']['created'] = null;
+                    $Partner['User']['modified'] = null;
+                    $Partner['User']['errror'] = "NoUserExistence";
+                }
+                $rooms[$key]['Partner'] = $Partner['User'];
+            }
+            unset($rooms[$key]['User']);
+        }
         /*
         *メッセージを返す
         */       
@@ -745,8 +668,8 @@ class UsersController extends AppController {
 
     }
 
-    public function return_messages(){
-       /*
+    public function ControlConversation(){
+        /*
         *リクエストがない場合のエラー
         */
         if(empty($this->request->data)){
@@ -755,24 +678,329 @@ class UsersController extends AppController {
             return;
         }
         /*
-        *検索する
+        *変数を設定する
         */
-        $this->UserMessage->unbindModel(
-            array(
-                'belongsTo' => array('UserRoom' , 'User'),
+        $data['user_id'] = $this->request->data['id'];
+        $data['partner_id'] = $this->request->data['partner_id'];
+        /*
+        *idがない場合はエグジット
+        */
+        $user_id_exsitance = $this->User->find('all' , array(
+            'conditions' => array(
+                'AND' => array(
+                    'id' => array($data['user_id'],$data['partner_id'])
+                )
+            ),           
+        ));
+        if(empty($user_id_exsitance)) {
+            $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
+            $this->set(array('message' => $message, '_serialize' => array('message')));
+            return;
+        }
+        /*
+        *過去の投稿を検索する
+        */
+        $PastChatForUser_id = $this->UserMessage->find('all' , array(
+            'conditions' => array(
+                'UserMessage.user_id' => $data['user_id'],
+                'UserMessage.partner_id' => $data['partner_id']
             )
-        );
+        ));
+        $PastChatForPartner_id = $this->UserMessage->find('all' , array(
+            'conditions' => array(
+                'UserMessage.partner_id' => $data['user_id'],
+                'UserMessage.user_id' => $data['partner_id']
+            )
+        ));
+        /*
+        *過去の投稿が１件もない場合にはChatRoomを作成する
+        */
+        if(empty($PastChatForUser_id) && empty($PastChatForPartner_id)){
+            $this->UserRoom->create();
+            $group_data = $this->UserRoom->save($data);
+            /*
+            *saveに失敗したらエラーメッセージ
+            */
+            if(empty($group_data)){
+                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
+            /*
+            *メッセージを保存
+            */
+            $data['message'] = $this->request->data['message'];
+            $data['user_room_id'] = $this->UserRoom->getLastInsertID();
+            $this->UserMessage->create();
+            $message_data = $this->UserMessage->save($data);
+            /*
+            *saveに失敗したらエラーメッセージ
+            */
+            if(empty($message_data)){
+                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
+
+        }
+        if(!empty($PastChatForUser_id) || !empty($PastChatForPartner_id)){
+            /*
+            *id側の投稿があれば、そのルームidを設定する
+            */
+            if(!empty($PastChatForUser_id)){
+                $data['user_room_id'] = $PastChatForUser_id[0]['UserMessage']['user_room_id'];
+            }
+            /*
+            *partner側の投稿があれば、そのルームidを設定する
+            */
+            if(!empty($PastChatForPartner_id)){
+                $data['user_room_id'] = $PastChatForPartner_id[0]['UserMessage']['user_room_id'];
+            }
+            /*
+            *メッセージの保存
+            */
+            $data['message'] = $this->request->data['message'];
+            $this->UserMessage->create();
+            $message_data = $this->UserMessage->save($data);
+            /*
+            *saveに失敗したらエラーメッセージ
+            */
+            if(empty($message_data)){
+                $message = array('result' => 'error' , 'detail' => 'UserRoomSaveError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
+
+        }
+        /*
+        *グループidから今までのチャットを全件検索する
+        */
+        $all_chat_data = $this->UserMessage->find('all' ,array(
+            'conditions' => array('user_room_id' => $data['user_room_id'])
+        ));
+        /*
+        *サクセスのjsonを返す
+        */
+        pr($all_chat_data);
+        pr($data['user_room_id']);
+        exit;
+        $message = array('result' => 'success' , 'user_room_id' => $data['user_room_id'] , 'chat_data' => $all_chat_data);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+        return;
+    }
+
+
+    public function return_messages(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *メッセージを検索する
+        */
         $messages = $this->UserMessage->find('all' , array(
             'conditions' => array(
                 'user_room_id' => $this->request->data['user_room_id']
             )
         ));
         /*
+        *グループidを検索する
+        */
+        $this->UserRoom->unbindModel(
+            array(
+                'belongsTo' => array('User'),
+                'hasMany' => array('UserMessage')
+            )
+        );
+        $room = $this->UserRoom->find('first' , array(
+            'conditions' => array('UserRoom.id' => $this->request->data['user_room_id'])
+        ));
+        if(empty($room)){
+            $message = array('result' => 'error' , 'detail' => 'NoRoom');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *パートナーidを指定する
+        */
+        if($room['UserRoom']['user_id'] == $this->request->data['id']){
+            $partner_id = $room['UserRoom']['partner_id'];
+        }
+        if($room['UserRoom']['partner_id'] == $this->request->data['id']){
+            $partner_id = $room['UserRoom']['user_id'];
+        }
+        if(empty($partner_id)){
+            $message = array('result' => 'error' , 'detail' => 'NoPartnerIdInThisRoom');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *自分のUser情報を検索する
+        */
+        $this->User->unbindModel(array(
+            'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+            )
+        );
+        $myself = $this->User->find('first' , array(
+            'conditions' => array('id' => $this->request->data['id'])
+        ));
+        if(empty($myself)){
+            $message = array('result' => 'error' , 'detail' => 'NoMyself');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *パートナーのニックネームを返信する
+        */
+        $this->User->unbindModel(array(
+            'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+            )
+        );
+        $partner_user = $this->User->find('first' , array(
+            'conditions' => array('id' => $partner_id)
+        ));
+        if(empty($partner_user)){
+            $message = array('result' => 'error' , 'detail' => 'NoPartnerUser');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        pr($messages);
+        exit;
+        /*
         *メッセージを返す
         */       
-        $message = array('result' => 'success' , 'messages' => $messages);
+        $message = array('result' => 'success' , 'messages' => $messages, 'myself' => $myself ,'partner_user' => $partner_user);
+        //$message = array('result' => 'success' , 'user_room_id' => $data['user_room_id'] , 'chat_data' => $messages);
         $this->set(array('message' => $message, '_serialize' => array('message')));
 
     }
+
+    public function new_chat_conversation(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *
+        */
+        if(empty($this->request->data['room_id'])){
+            /*
+            *idがない場合はエグジット
+            */
+            $this->User->unbindModel(array(
+                'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+                )
+            );
+            $user_id_exsitance = $this->User->find('all' , array(
+                'conditions' => array(
+                    'AND' => array(
+                        'id' => array($this->request->data['id'],$this->request->data['partner_id'])
+                    )
+                ),           
+            ));
+            if(empty($user_id_exsitance)) {
+                $message = array('result' => 'errror' , 'detail' => 'UserIdExsitence');
+                $this->set(array('message' => $message, '_serialize' => array('message')));
+                return;
+            }
+            /*
+            *グループを検索
+            */
+            $conditions = array(
+                'OR' =>
+                    array(
+                        array( 'and' => array('UserRoom.user_id'=>$this->request->data['id'], 'UserRoom.partner_id'=>$this->request->data['partner_id'])),
+                        array( 'and' => array('UserRoom.user_id'=>$this->request->data['partner_id'], 'UserRoom.partner_id'=>$this->request->data['id']))
+                    )
+            );
+            $this->UserRoom->unbindModel(array(
+                'belongsTo' => array('User'),
+                'hasMany' => array('UserMessage'),
+                )
+            );
+            $room = $this->UserRoom->find('first' , array(
+                'conditions' => $conditions
+            ));
+            /*
+            *ルームがなかった場合は、ルームを作成する
+            */
+            if(empty($room)){
+                /*
+                *ルームを作成する
+                */
+
+                $new_room_info['user_id'] = $this->request->data['id'];
+                $new_room_info['partner_id'] = $this->request->data['partner_id'];
+                $this->UserRoom->create();
+                $new_room = $this->UserRoom->save($new_room_info);
+                /*
+                *メッセージのルームidを変数に格納する
+                */
+                $this->request->data['room_id'] = $this->UserRoom->getLastInsertID();
+                /*
+                *saveに失敗したらエラーメッセージ
+                */
+                if(empty($new_room)){
+                    $message = array('result' => 'error' , 'detail' => 'NewRoomSaveError');
+                    $this->set(array('message' => $message, '_serialize' => array('message')));   
+                    return;
+                }
+            }
+            /*
+            *メッセージを検索するidを指定する
+            */
+            if(!empty($room)){
+                $this->request->data['room_id'] = $room['UserRoom']['id'];
+            }
+            /*
+            *メッセージを保存する
+            */
+            $message_info['message'] = $this->request->data['message'];
+            $message_info['user_id'] = $this->request->data['id'];
+            $message_info['user_room_id'] = $this->request->data['room_id'];
+
+            $this->UserMessage->create();
+            $message_info = $this->UserMessage->save($message_info);
+            /*
+            *saveに失敗したらエラーメッセージ
+            */
+            if(empty($message_info)){
+                $message = array('result' => 'error' , 'detail' => 'UserMessageSaveError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
+            /*
+            *ルームのmodifiedをupdateする
+            */
+            if(!empty($message_info)){
+                $this->UserRoom->id = $this->request->data['room_id'];
+                $this->UserRoom->saveField('modified', date('Y-m-d H:i:s'));
+            }
+        }
+        /*
+        *ルームidからメッセージを検索する
+        */
+        $this->UserRoom->unbindModel(array(
+            'belongsTo' => array('User')
+            )
+        );
+        $messages = $this->UserRoom->find('first', array(
+            'conditions' => array(
+                'UserRoom.id' => $this->request->data['room_id']
+            ),
+            'recursive' => 2,
+            'order' => array('created' => 'DESC')
+        ));
+        $message = array('result' => 'success' , 'chat_data' => $messages);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+    } 
 
 }

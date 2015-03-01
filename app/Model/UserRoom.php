@@ -13,6 +13,7 @@ class UserRoom extends AppModel {
         'UserMessage' => array(
             'className'  => 'UserMessage',
             'foreignKey'    => 'user_room_id',
+            'order'         => 'UserMessage.modified ASC'
         )
     );
 
