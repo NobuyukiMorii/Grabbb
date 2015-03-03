@@ -37,29 +37,117 @@ class UsersController extends AppController {
         ));
     }
 
-    public function edit($id) {
-        $this->User->id = $id;
-        if ($this->User->save($this->request->data)) {
-            $message = 'Saved';
+    public function edit() {
+        if(isset($this->request->data['id'])){
+            $result['id'] = $this->request->data['id'];
         } else {
-            $message = 'Error';
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
         }
-        $this->set(array(
-            'message' => $message,
-            '_serialize' => array('message')
+        if(!empty($this->request->data['user_id'])){
+            $this->User->id = $this->request->data['id'];
+            $result['user_id'] = $this->User->saveField('user_id', $this->request->data['user_id']);
+            if(empty($result['user_id'])){
+                $error_flg = 'user_id';
+            } else {
+                $result['user_id'] = $result['user_id']['User']['user_id'];
+            }
+        }
+        if(!empty($this->request->data['nickname'])){
+            $this->User->id = $this->request->data['id'];
+            $result['nickname'] = $this->User->saveField('nickname', $this->request->data['nickname']);
+            if(empty($result['nickname'])){
+                $error_flg = 'nickname';
+            } else {
+                $result['nickname'] = $result['nickname']['User']['nickname'];
+            }
+        }
+        if(!empty($this->request->data['email'])){
+            $this->User->id = $this->request->data['id'];
+            $result['email'] = $this->User->saveField('email', $this->request->data['email']);
+            if(empty($result['email'])){
+                $error_flg = 'email';
+            } else {
+                $result['email'] = $result['email']['User']['email'];
+            }
+        }
+        if(!empty($this->request->data['introductory_comment'])){
+            $this->User->id = $this->request->data['id'];
+            $result['introductory_comment'] = $this->User->saveField('introductory_comment', $this->request->data['introductory_comment']);
+            if(empty($result['introductory_comment'])){
+                $error_flg = 'introductory_comment';
+            } else {
+                $result['introductory_comment'] = $result['email']['User']['introductory_comment'];
+            }
+        }
+        if(!empty($this->request->data['password'])){
+            $this->request->data['password'] = sha1($this->request->data['password']);
+            $this->User->id = $this->request->data['id'];
+            $result['password'] = $this->User->saveField('password', $this->request->data['password']);
+            if(empty($result['password'])){
+                $error_flg = 'password';
+            } else {
+                $result['password'] = $result['password']['User']['password'];
+            }
+        }
+        $result = $this->User->find('first' ,array(
+            'conditions' => array('id' => $this->request->data['id'])
         ));
+        if (!isset($error_flg)) {
+            $message = array('result' => 'Saved', 'detail' => $result);
+        } else {
+            $message = array('result' => 'Error' , 'detail' => $error_flg);
+        }
+        $this->set(array('message' => $message, '_serialize' => array('message')));
     }
 
-    public function delete($id) {
-        if ($this->User->delete($id)) {
-            $message = 'Deleted';
-        } else {
-            $message = 'Error';
+    public function delete() {
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
         }
-        $this->set(array(
-            'message' => $message,
-            '_serialize' => array('message')
+        /*
+        *物理削除
+        */
+        $delete['id'] = $this->User->delete($this->request->data['id']);
+        $delete['image'] = $this->UserImage->deleteAll(array('UserImage.user_id' => $this->request->data['id']), false);
+        $delete['location'] = $this->UserLocation->deleteAll(array('UserLocation.user_id' => $this->request->data['id']), false);
+        /*
+        *論理削除
+        */
+        $this->UserMessage->unbindModel(array(
+            'belongsTo' => array('User' , 'UserRoom')
+            )
+        );
+        $user_messages = $this->UserMessage->find('all' , array(
+            'conditions' => array('UserMessage.user_id' => $this->request->data['id'])
         ));
+        foreach ($user_messages as $key => $value) {
+            $this->UserMessage->id = $value['UserMessage']['id'];
+            $delete['message'] = $this->UserMessage->saveField('user_id', 999999999);
+        }
+
+        $this->UserRoom->unbindModel(array(
+            'belongsTo' => array('User'),
+            'hasMany' => array('UserMessage')
+            )
+        );
+        $user_rooms = $this->UserRoom->find('all' , array(
+            'conditions' => array('UserRoom.user_id' => $this->request->data['id'])
+        ));
+        foreach ($user_rooms as $key => $value) {
+            $this->UserRoom->id = $value['UserRoom']['id'];
+            $delete['message'] = $this->UserRoom->saveField('user_id', 999999999);
+        }
+
+        $message = array('result' => 'Deleted', 'detail' => $delete);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+
     }
 
     //ログイン処理
@@ -1002,5 +1090,24 @@ class UsersController extends AppController {
         $message = array('result' => 'success' , 'chat_data' => $messages);
         $this->set(array('message' => $message, '_serialize' => array('message')));
     } 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 }
