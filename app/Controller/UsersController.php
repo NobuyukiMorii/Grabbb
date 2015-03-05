@@ -129,7 +129,7 @@ class UsersController extends AppController {
         ));
         foreach ($user_messages as $key => $value) {
             $this->UserMessage->id = $value['UserMessage']['id'];
-            $delete['message'] = $this->UserMessage->saveField('user_id', 999999999);
+            $delete['message'] = $this->UserMessage->saveField('user_id', 1);
         }
 
         $this->UserRoom->unbindModel(array(
@@ -142,7 +142,7 @@ class UsersController extends AppController {
         ));
         foreach ($user_rooms as $key => $value) {
             $this->UserRoom->id = $value['UserRoom']['id'];
-            $delete['message'] = $this->UserRoom->saveField('user_id', 999999999);
+            $delete['message'] = $this->UserRoom->saveField('user_id', 1);
         }
 
         $message = array('result' => 'Deleted', 'detail' => $delete);
@@ -956,8 +956,6 @@ class UsersController extends AppController {
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
-        pr($messages);
-        exit;
         /*
         *メッセージを返す
         */       
@@ -972,14 +970,50 @@ class UsersController extends AppController {
         *リクエストがない場合のエラー
         */
         if(empty($this->request->data)){
-            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $message = array('result' => 'error' , 'detail' => 'RequestError');
             $this->set(array('message' => $message, '_serialize' => array('message')));   
             return;
         }
         /*
-        *
+        *ユーザーが3回以上通報されているかどうかを調べる
+        */
+        if(empty($this->request->data['partner_id']) && empty($this->request->data['message']) && empty($this->request->data['room_id'])) {
+            $this->User->unbindModel(array(
+                'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+                )
+            );
+            $user_check = $this->User->find('first' , array(
+                'conditions' => array('id' => $this->request->data['id'])
+            ));
+            if($user_check['User']['report_count'] > 2){
+                $message = array('result' => 'error' , 'detail' => 'ReportedError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            } else {
+                $message = array('result' => 'success' , 'detail' => 'User is not in black list');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
+        }
+        /*
+        *room_idがある場合
         */
         if(empty($this->request->data['room_id'])){
+            /*
+            *ユーザーが3回以上通報されているかどうかを調べる
+            */
+            $this->User->unbindModel(array(
+                'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+                )
+            );
+            $user_check = $this->User->find('first' , array(
+                'conditions' => array('id' => $this->request->data['id'])
+            ));
+            if($user_check['User']['report_count'] > 2){
+                $message = array('result' => 'error' , 'detail' => 'ReportedError');
+                $this->set(array('message' => $message, '_serialize' => array('message')));   
+                return;
+            }
             /*
             *idがない場合はエグジット
             */
@@ -1024,7 +1058,6 @@ class UsersController extends AppController {
                 /*
                 *ルームを作成する
                 */
-
                 $new_room_info['user_id'] = $this->request->data['id'];
                 $new_room_info['partner_id'] = $this->request->data['partner_id'];
                 $this->UserRoom->create();
@@ -1091,23 +1124,52 @@ class UsersController extends AppController {
         $this->set(array('message' => $message, '_serialize' => array('message')));
     } 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    public function report(){
+        /*
+        *リクエストがない場合のエラー
+        */
+        if(empty($this->request->data)){
+            $message = array('result' => 'error' , 'detail' => 'RequestErrpr');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *現在の状況を調べる
+        */
+        $this->User->unbindModel(array(
+            'hasMany' => array('UserImage' , 'UserLocation' , 'UserMessage'),
+            )
+        );
+        $user = $this->User->find('first' , array(
+            'conditions' => array('id' => $this->request->data['id'])
+        ));
+        /*
+        *レポートカウントを増やす
+        */
+        $user['User']['report_count'] = $user['User']['report_count'] + 1;
+        /*
+        *ユーザーのカウントを保存する
+        */
+        $this->User->id = $user['User']['id'];
+        $flg_update_user = $this->User->saveField('report_count', $user['User']['report_count']);
+        if(empty($flg_update_user)){
+            $message = array('result' => 'error' , 'detail' => 'ReportCountUpdateError');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        /*
+        *メッセージにレポートフラグをつける
+        */
+        $this->UserMessage->id = $this->request->data['message_id'];
+        $flg_update_message = $this->UserMessage->saveField('report_flg', 'true');
+        if(empty($flg_update_message)){
+            $message = array('result' => 'error' , 'detail' => 'MessageUpdateError');
+            $this->set(array('message' => $message, '_serialize' => array('message')));   
+            return;
+        }
+        $message = array('result' => 'success' , 'user' => $flg_update_user ,'message' => $flg_update_message);
+        $this->set(array('message' => $message, '_serialize' => array('message')));
+    }
 
 
 }
